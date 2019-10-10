@@ -1,0 +1,214 @@
+##Proyecto 2
+## Análisis espacial de sismos en Costa Rica
+
+##Bibliotecas
+library(sp)
+library(rgdal)
+library(raster)
+library(spatstat)
+library(dplyr)
+library(maptools)
+
+setwd("F:/Proyecto2")
+
+base1 <- read.csv2("F:/Proyecto2/sismos.csv", header=TRUE)
+
+##Creando SpatialPointsDataFrame
+
+sp_point <- cbind(base1$Lon, base1$Lat)
+colnames(sp_point) <- c("Lon","Lat")
+head(sp_point)
+proj <- CRS("+proj=utm +zone=16 +datum=WGS84")
+data.sp <- SpatialPointsDataFrame(coords=sp_point,base1,proj4string=proj)
+
+##Verificando los duplicados 
+
+if((cbind(base1$Lon,base1$Lat) %>% duplicated() %>% sum())==0)
+{
+  print("No hay duplicados")
+} else {
+  print("Hay duplicados")
+}
+
+##Definiendo la ventana de analisis
+
+costarica <- readRDS("CRI_adm2.rds")
+margen<-
+xcord<-(-c(85.60,84.92,84.66,83.88,83.71,83.69,83.43,83.09,83.03,82.52,82.65,
+           82.83,82.82,82.91,82.91,82.67,82.88,82.78,82.97,82.83,82.92,
+           83.01,83.18,83.21,83.38,83.25,83.27,83.59,83.77,83.64,84.08,
+           84.73,85.05,84.85,85.11,85.43,85.69,85.91,85.69,85.98))
+
+ycord<-c(11.27,10.99,11.13,10.76,10.82,10.99,10.45,10.03,10.02,9.55,
+         9.47,9.59,9.49,9.45,9.12,8.95,8.74,8.52,8.32,8.04,8.02,8.24,
+         8.37,8.59,8.66,8.49,8.34,8.43,8.62,8.99,9.33,9.53,10.06,
+         9.85,9.53,9.82,9.90,10.32,10.80,10.91)
+
+wndw <- owin(poly = list(x = rev(xcord),
+                         y = rev(ycord)))
+
+##Creando el objeto tipo ppp
+
+base<- ppp(data.sp@coords[,1],data.sp@coords[,2],window=wndw)
+names(base)
+
+sismos<- ppp(data.sp@coords[,1],data.sp@coords[,2],window=wndw)
+names(sismos)
+
+##Graficando directamente el objeto ppp
+
+par(mfrow=c(1,1))
+plot(sismos,pch=16,main="", cex=.6,axes=TRUE,cols="black",cex.main=0.5,xlim=c(-85.5,-83),ylim=c(8,11.5),border=F)
+mtext("Gr?fico 2. Distribuci?n de los sismos en Costa Rica", side =3, line = 2, outer = FALSE, at = NA,
+      adj = 0.5, padj = 1, cex = 1.5, col = 1, font = 4)
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+##Gr?ficos para visualizar la densidad
+
+plot(sismos,pch=16,main="", cex=.6,axes=TRUE,cols="green",cex.main=0.5,xlim=c(-85.5,-83),ylim=c(8,11.5),border=F)
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+plot(density(sismos))
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+contour(density(sismos))
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+###Explorar los patrones espaciales
+
+#1.Metodos que se ocupan de investigar las propiedades de primer orden:
+##  1.1 M?todos de cuadrantes
+
+cont = quadratcount(sismos, nx=4, ny=4)
+diri = dirichlet(sismos)
+delau = delaunay(sismos)
+
+par(mfrow=c(2,2))
+plot(sismos,pch=16,main="Patron de Puntos", cex=.6,axes=TRUE,cols="green",cex.main=0.5,xlim=c(-85.5,-83),ylim=c(8,11.5),border=F)
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+plot(sismos,pch=16,main="Analisis por cuadrantes", cex=.6,axes=TRUE,cols="red",cex.main=0.5,xlim=c(-85.5,-83),ylim=c(8,11.5),border=F)
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+plot(cont,add=T)
+
+plot(diri, main="Dirichlet")
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T,border="red")
+plot(delau, main="Delunay")
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T,border="red")
+
+##  1.2 Estimaci?n de Kernel
+
+##Efecto del kernel
+
+plot(sismos,pch=16,main="Padron de Puntos", cex=.6,axes=TRUE,cols="green",cex.main=0.5,xlim=c(-85.5,-83),ylim=c(8,11.5),border=F)
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+plot(density(sismos), main="Gaussian")
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+plot(density(sismos, kernel="quartic"),main="quartic")
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+plot(density(sismos, kernel="epanechnikov"),main="epanechnikov")
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+##Efecto del ancho de banda
+
+plot(sismos,pch=16,main="Padron de Puntos", cex=.6,axes=TRUE,cols="green",cex.main=0.5,xlim=c(-85.5,-83),ylim=c(8,11.5),border=F)
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+plot(density(sismos, adjust=0.5), main="0.5*bw")
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+plot(density(sismos, adjust=1), main="1*bw")
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+plot(density(sismos, adjust=4), main="4*bw")
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+##Metodos que se ocupan de investigar las propiedades de segundo orden:
+
+  ##2.1 Vecino mas cercano (Nearest neighbor distances)
+
+par(mfrow=c(1,2))
+Ga <- envelope(sismos, Gest, nsim = 1000)
+Fa <- envelope(sismos, Fest, nsim = 1000)
+plot(Ga,main="Funcion G")
+plot(Fa, main="Funcion F")
+
+  ##2.2 Funcion k de Ripley
+
+rip.k <- Kest(sismos,nlarge=11000)
+rip.k
+rip.l <- Lest(sismos,nlarge=11000)
+rip.l
+plot(rip.k,main="Funcion K")
+plot(rip.l,main="Funcion L")
+
+set.seed(234)
+rip.l <- envelope(sismos, fun = Lest, nsim = 99)
+plot(rip.l)
+
+
+
+####################################################################################
+####Análisis estadístico de un proceso puntual espacial
+
+#Aleatoriedad Espacial Completa
+##Complete Spatial Randomness (CSR) los eventos están distribuidos independientemente, aleatoriamente y uniformemente en todo el área de estudio.
+## Basado en el analisis gráfico y la función G y F, podemos evaluar estadísticamente si la distribución observada de los puntos es significativamente diferente de una distribución aleatoria de poisson. 
+##Es claro que la gráfica exhibe agrupamiento para cualquier valor de radio. 
+
+##1.Proceso Poisson homogéneo
+
+#El HPP es estacionario e isotrópico. 
+#Estacionario porque la intensidad es constante e isotrópico porque la 
+#intensidad de segundo orden depende solamente de la posición relativa de dos puntos (es decir, de la distancia y la dirección). 
+#Esto implica que el HPP es la definición formal de un proceso puntual que sigue una distribución CSR.
+# Ya vimos que nuestros datos no siguen una distribución CSR, por lo que no estamos ante un proceso poisson homogeneo.
+## En este caso la intensidad λ(s) no se puede asumir constante en todo el área de estudio A
+
+##2.Proceso Poisson no homogéneo
+
+##Modelo de Poisson con una intensidad que es log-lineal en las coordenadas cartesianas
+
+mod <- ppm(sismos, ~ x + y)
+summary(mod)
+plot(mod,how="image",se=F,pause=F)
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+model.matrix.ppm(mod)
+
+##Modelo de Poisson no homogéneo con una intensidad que es log-cuadrático en las coordenadas cartesianas
+mod2 <- ppm(sismos, ~polynom(x, y, 2))
+summary(mod2)
+plot(mod2,how="image",se=F,pause=F)
+plot(costarica,xlim=c(-85.5,-83),ylim=c(8,11.5),add=T)
+
+
+#Verosimilitud de un proceso Poisson no homogéneo
+
+loglambda<-function(x, alpha, beta)
+{
+  l<-alpha+sum(beta*c(x, x*x, prod(x)))
+  return(l)
+}
+
+L<-function(alphabeta, x)
+{
+  l<-apply(x,1,loglambda, alpha=alphabeta[1], beta=alphabeta[-1])
+  l<-sum(l)
+  intL<-adaptIntegrate(lowerLimit=c(0,0), upperLimit=c(1,1), fDim=1,
+                       tol=1e-8, f=function(x, alpha=alphabeta[1], beta=alphabeta[-1])
+                       {
+                         exp(loglambda(x, alpha, beta))
+                       })
+  l<-l-intL$integral
+  return(l)#Optim minimises
+}
+
+gp <- brewer.pal(8, "Reds")
+library(cubature)
+data(lansing)
+
+
+x<-as.points(data.sp@coords[,1],data.sp@coords[,2])
+
+x<-as.points(lansing[lansing$marks=="maple",])
